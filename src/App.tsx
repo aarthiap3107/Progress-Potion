@@ -409,7 +409,8 @@ export default function App({ user }) {
   const [newGoal,setNewGoal]=useState('');
   const [pastGoals,setPastGoals]=useState([]);
   const [dLog,setDLog]=useState({});
-  const [streaks,setStreaks]=useState({routine:0,health:0,mood:0,best:0});
+  const [streaks,setStreaks]=useState({routine:0,health:0,mood:0,best:0,login:0,bestLogin:0});
+  const [showStreakReset,setShowStreakReset]=useState(false);
   const [pomMode,setPomMode]=useState('focus');
   const [pomSecs,setPomSecs]=useState(25*60);
   const [pomRunning,setPomRunning]=useState(false);
@@ -422,9 +423,21 @@ export default function App({ user }) {
     (async()=>{
       const pairs=[['routines',setRoutines],['tasks',setTasks],['health',setHealth],['sleepH',setSleepH],['hobbyH',setHobbyH],['notes',setNotes],['moodH',setMoodH],['wGoal',setWGoal],['pastGoals',setPastGoals],['dLog',setDLog],['streaks',setStreaks]];
       for(const [k,s] of pairs){ const v=await ld(k); if(v) s(v); }
+      // Login streak
+      const today=tds();
+      const lastLogin=await ld('lastLogin');
+      const savedStreaks=await ld('streaks');
+      const prev=savedStreaks||{routine:0,health:0,mood:0,best:0,login:0,bestLogin:0};
+      if(lastLogin!==today){
+        const yesterday=new Date();yesterday.setDate(yesterday.getDate()-1);
+        const yd=yesterday.toLocaleDateString('en-IN');
+        const newLogin=lastLogin===yd?(prev.login||0)+1:1;
+        const newBestLogin=Math.max(newLogin,prev.bestLogin||0);
+        const ns={...prev,login:newLogin,bestLogin:newBestLogin};
+        setStreaks(ns);sv('streaks',ns);sv('lastLogin',today);
+      }
       // Auto-reset
       const lr=await ld('lastReset');
-      const today=tds();
       if(!lr||lr!==today){
         setRoutines(DEF_ROUTINES);
         sv('routines',DEF_ROUTINES);
@@ -998,6 +1011,19 @@ export default function App({ user }) {
       </div>
         <div style={{position:'relative',zIndex:1,textAlign:'center',padding:'18px 16px 12px',borderBottom:'1px solid rgba(201,168,76,.18)',background:'rgba(0,0,0,.25)'}}>
         <button onClick={()=>supabase.auth.signOut()} title="Logout" style={{position:'absolute',top:12,right:14,background:'none',border:'1px solid rgba(201,168,76,0.25)',borderRadius:8,color:C.dim,cursor:'pointer',padding:'4px 10px',fontSize:11,transition:'all .2s'}} onMouseEnter={e=>{e.currentTarget.style.color=C.gold;e.currentTarget.style.borderColor=C.gold;}} onMouseLeave={e=>{e.currentTarget.style.color=C.dim;e.currentTarget.style.borderColor='rgba(201,168,76,0.25)';}}>🚪 Logout</button>
+        <div style={{position:'absolute',top:12,left:14}}>
+          <div onClick={()=>setShowStreakReset(p=>!p)} title={`${streaks.login??1} day streak • Best: ${streaks.bestLogin||(streaks.login??1)} days`} style={{display:'flex',alignItems:'center',gap:4,background:'rgba(201,168,76,0.12)',border:'1px solid rgba(201,168,76,0.3)',borderRadius:20,padding:'4px 10px',cursor:'pointer'}}>
+            <span style={{fontSize:13}}>⚡</span>
+            <span style={{fontSize:12,fontWeight:'bold',color:C.gold}}>{streaks.login??1}</span>
+          </div>
+          {showStreakReset&&<div style={{position:'absolute',top:32,left:0,background:'#1a1a2e',border:'1px solid rgba(201,168,76,0.3)',borderRadius:10,padding:'8px 10px',zIndex:100,whiteSpace:'nowrap',boxShadow:'0 4px 20px rgba(0,0,0,0.5)'}}>
+            <div style={{fontSize:11,color:C.dim,marginBottom:6}}>Reset streak to 0?</div>
+            <div style={{display:'flex',gap:6}}>
+              <button onClick={()=>{const ns={...streaks,login:0};setStreaks(ns);sv('streaks',ns);sv('lastLogin','');setShowStreakReset(false);}} style={{fontSize:11,padding:'3px 10px',borderRadius:6,border:'1px solid rgba(231,76,60,0.4)',background:'rgba(231,76,60,0.15)',color:'#e74c3c',cursor:'pointer'}}>Reset</button>
+              <button onClick={()=>setShowStreakReset(false)} style={{fontSize:11,padding:'3px 10px',borderRadius:6,border:'1px solid rgba(255,255,255,0.1)',background:'none',color:C.dim,cursor:'pointer'}}>Cancel</button>
+            </div>
+          </div>}
+        </div>
         <div style={{fontSize:21,fontWeight:'bold',color:C.gold,letterSpacing:3,textShadow:'0 0 24px rgba(201,168,76,.5)'}}>⚡ PERSONAL LIFE OS ⚡</div>
         <div style={{fontSize:14,color:C.cream,marginTop:5,fontStyle:'italic'}}>{greeting}, <span style={{color:C.gold,fontWeight:'bold',fontStyle:'normal'}}>{userName}</span> ✨</div>
         <div style={{fontSize:22,fontWeight:'bold',color:C.goldL,marginTop:5,fontFamily:'monospace',letterSpacing:2,animation:'clockPulse 2s ease-in-out infinite'}}>{clock}</div>
